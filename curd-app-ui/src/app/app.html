@@ -1,0 +1,279 @@
+<main class="page">
+  @if (!isAuthenticated()) {
+    <section class="auth-panel">
+      <h1>Inventory Portal Access</h1>
+      <p>Register first, then login with JWT-secured authentication.</p>
+
+      <div class="auth-tabs">
+        <button type="button" [class.active-tab]="authMode() === 'login'" (click)="switchAuthMode('login')">Login</button>
+        <button type="button" [class.active-tab]="authMode() === 'register'" (click)="switchAuthMode('register')">Register</button>
+      </div>
+
+      @if (authMessage()) {
+        <p class="auth-message">{{ authMessage() }}</p>
+      }
+
+      @if (authMode() === 'register') {
+        <form class="auth-form" (ngSubmit)="register()">
+          <label>
+            Username
+            <input [ngModel]="authForm().username" (ngModelChange)="updateAuthUsername($event)" name="regUsername" required />
+          </label>
+          <label>
+            Email
+            <input [ngModel]="authForm().email" (ngModelChange)="updateAuthEmail($event)" name="regEmail" type="email" required />
+          </label>
+          <label>
+            Password
+            <input [ngModel]="authForm().password" (ngModelChange)="updateAuthPassword($event)" name="regPassword" type="password" required />
+          </label>
+          <label>
+            Confirm Password
+            <input
+              [ngModel]="authForm().confirmPassword"
+              (ngModelChange)="updateConfirmPassword($event)"
+              name="regConfirmPassword"
+              type="password"
+              required
+            />
+          </label>
+          <button type="submit">Create Account</button>
+        </form>
+      }
+
+      @if (authMode() === 'login') {
+        <form class="auth-form" (ngSubmit)="login()">
+          <label>
+            Username or Email
+            <input
+              [ngModel]="authForm().usernameOrEmail"
+              (ngModelChange)="updateUsernameOrEmail($event)"
+              name="loginUsername"
+              required
+            />
+          </label>
+          <label>
+            Password
+            <input [ngModel]="authForm().password" (ngModelChange)="updateAuthPassword($event)" name="loginPassword" type="password" required />
+          </label>
+          <button type="submit">Login</button>
+        </form>
+      }
+    </section>
+  } @else {
+    <section class="panel">
+      <header class="header">
+        <div>
+          <h1>{{ title() }}</h1>
+          <p>Image upload, smart filtering, live status control, and inventory analytics.</p>
+          <small>Logged in as {{ authUsername() }} ({{ authEmail() }})</small>
+        </div>
+        <button type="button" class="secondary" (click)="logout()">Logout</button>
+      </header>
+
+      <section class="stats">
+        <article class="card">
+          <h3>Total Products</h3>
+          <strong>{{ products().length }}</strong>
+        </article>
+        <article class="card">
+          <h3>Active Items</h3>
+          <strong>{{ activeCount() }}</strong>
+        </article>
+        <article class="card">
+          <h3>Low Stock</h3>
+          <strong>{{ lowStockCount() }}</strong>
+        </article>
+        <article class="card">
+          <h3>Inventory Value</h3>
+          <strong>${{ totalInventoryValue().toFixed(2) }}</strong>
+        </article>
+      </section>
+
+      @if (errorMessage()) {
+        <p class="error">{{ errorMessage() }}</p>
+      }
+
+      @if (successMessage()) {
+        <p class="success">{{ successMessage() }}</p>
+      }
+
+      <form class="form" (ngSubmit)="saveProduct()" enctype="multipart/form-data">
+        <label>
+          Name
+          <input [ngModel]="form().name" (ngModelChange)="updateName($event)" name="name" required placeholder="Laptop" />
+        </label>
+
+        <label>
+          SKU
+          <input [ngModel]="form().sku" (ngModelChange)="updateSku($event)" name="sku" placeholder="SKU-1001" />
+        </label>
+
+        <label>
+          Category
+          <input [ngModel]="form().category" (ngModelChange)="updateCategory($event)" name="category" placeholder="Electronics" />
+        </label>
+
+        <label>
+          Price ($)
+          <input [ngModel]="form().price" (ngModelChange)="updatePrice(+$event)" name="price" type="number" min="0" step="0.01" />
+        </label>
+
+        <label>
+          Quantity (Units)
+          <input [ngModel]="form().quantity" (ngModelChange)="updateQuantity(+$event)" name="quantity" type="number" min="0" step="1" />
+        </label>
+
+        <label class="full-span">
+          Description
+          <input
+            [ngModel]="form().description"
+            (ngModelChange)="updateDescription($event)"
+            name="description"
+            placeholder="Add detailed product notes"
+          />
+        </label>
+
+        <label>
+          Upload Product Image
+          <input type="file" accept="image/png,image/jpeg,image/webp" (change)="onImageSelected($event)" />
+        </label>
+
+        <label class="inline-check">
+          <input type="checkbox" [ngModel]="form().isActive" (ngModelChange)="updateIsActive($event)" name="isActive" />
+          Product is active
+        </label>
+
+        @if (isEditing()) {
+          <label class="inline-check">
+            <input
+              type="checkbox"
+              [ngModel]="form().removeImage"
+              (ngModelChange)="markImageForRemoval($event)"
+              name="removeImage"
+            />
+            Remove existing image
+          </label>
+        }
+
+        @if (imagePreview()) {
+          <div class="preview">
+            <img [src]="imagePreview()!" alt="Selected product preview" />
+          </div>
+        }
+
+        <div class="actions">
+          <button type="submit">{{ isEditing() ? 'Update Product' : 'Add Product' }}</button>
+          @if (isEditing()) {
+            <button type="button" class="secondary" (click)="cancelEdit()">Cancel</button>
+          }
+        </div>
+      </form>
+
+      <section class="toolbar">
+        <input
+          [ngModel]="search()"
+          (ngModelChange)="setSearch($event)"
+          name="search"
+          placeholder="Search by name, description, SKU"
+        />
+
+        <select [ngModel]="categoryFilter()" (ngModelChange)="setCategoryFilter($event)" name="categoryFilter">
+          @for (category of categories(); track category) {
+            <option [value]="category">{{ category === 'all' ? 'All categories' : category }}</option>
+          }
+        </select>
+
+        <select [ngModel]="statusFilter()" (ngModelChange)="setStatusFilter($event)" name="statusFilter">
+          <option value="all">All status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+
+        <select [ngModel]="pageSize()" (ngModelChange)="setPageSize(+$event)" name="pageSize">
+          @for (size of pageSizeOptions; track size) {
+            <option [value]="size">{{ size }} / page</option>
+          }
+        </select>
+      </section>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Image</th>
+              <th><button type="button" class="sort-btn" (click)="setSort('name')">Name</button></th>
+              <th>SKU</th>
+              <th><button type="button" class="sort-btn" (click)="setSort('category')">Category</button></th>
+              <th><button type="button" class="sort-btn" (click)="setSort('price')">Price</button></th>
+              <th><button type="button" class="sort-btn" (click)="setSort('quantity')">Qty</button></th>
+              <th>Status</th>
+              <th><button type="button" class="sort-btn" (click)="setSort('updatedAtUtc')">Updated</button></th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @if (loading()) {
+              <tr>
+                <td colspan="10">Loading products...</td>
+              </tr>
+            }
+
+            @for (product of pagedProducts(); track product.id) {
+              <tr>
+                <td>{{ product.id }}</td>
+                <td>
+                  @if (product.imageUrl) {
+                    <img class="thumb" [src]="toImageUrl(product.imageUrl)" [alt]="product.name" />
+                  } @else {
+                    <span class="no-image">No image</span>
+                  }
+                </td>
+                <td>{{ product.name }}</td>
+                <td>{{ product.sku || '-' }}</td>
+                <td>{{ product.category || '-' }}</td>
+                <td>{{ product.price.toFixed(2) }}</td>
+                <td>{{ product.quantity }}</td>
+                <td>
+                  <span [class]="product.isActive ? 'badge active' : 'badge inactive'">
+                    {{ product.isActive ? 'Active' : 'Inactive' }}
+                  </span>
+                </td>
+                <td>{{ product.updatedAtUtc ? product.updatedAtUtc.substring(0, 10) : '-' }}</td>
+                <td class="row-actions">
+                  <button type="button" class="small" (click)="editProduct(product)">Edit</button>
+                  <button type="button" class="small secondary" (click)="toggleProductStatus(product)">
+                    {{ product.isActive ? 'Deactivate' : 'Activate' }}
+                  </button>
+                  <button type="button" class="small danger" (click)="deleteProduct(product.id)">Delete</button>
+                </td>
+              </tr>
+            }
+
+            @if (!loading() && pagedProducts().length === 0) {
+              <tr>
+                <td colspan="10">No products found for current filters.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="pager">
+        <button type="button" class="small secondary" (click)="goToPreviousPage()" [disabled]="currentPage() === 1">
+          Previous
+        </button>
+        <span>Page {{ currentPage() }} of {{ totalPages() }}</span>
+        <button
+          type="button"
+          class="small secondary"
+          (click)="goToNextPage()"
+          [disabled]="currentPage() >= totalPages()"
+        >
+          Next
+        </button>
+      </footer>
+    </section>
+  }
+</main>
